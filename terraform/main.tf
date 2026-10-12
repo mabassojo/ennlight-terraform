@@ -14,3 +14,16 @@ resource "aws_ssm_parameter" "test" {
     ManagedBy   = "Terraform"
   }
 }
+
+locals {
+  project     = "devsecops-terraform-lab"
+  environment = "dev"
+}
+
+output "project_name" {
+  value = local.project
+}
+
+output "environment" {
+  value = local.environment
+}

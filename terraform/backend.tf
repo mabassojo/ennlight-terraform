@@ -9,7 +9,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket       = "ennie-terra-1003-tfstate"
+    bucket       = "ennie-terraform-1003-tfstate"
     key          = "labs/ssm-test/terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true

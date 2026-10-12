@@ -22,8 +22,9 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: arn:aws:iam::229853679013:role/github-actions-terraform-dev
-          aws-region: us-east-1
+           role-to-assume: arn:aws:iam::229853679013:role/github-actions-terraform-dev
+           aws-region: us-east-1
+           role-session-name: github-oidc-test
 
       - name: Verify AWS Identity
         run: aws sts get-caller-identity

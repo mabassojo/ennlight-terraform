@@ -1,14 +1,20 @@
-name: Terraform Backend Test
+
+name: Terraform Dev CI/CD
 
 on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
 
 jobs:
-  terraform:
+  terraform-plan:
+    name: Terraform Plan
     runs-on: ubuntu-latest
 
     defaults:
@@ -18,23 +24,13 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        
-      - name: Get GitHub Repository IDs
-        run: |
-          echo "Owner ID: ${{ github.repository_owner_id }}"
-          echo "Repository ID: ${{ github.repository_id }}"
-          echo "Repository: ${{ github.repository }}"
-          echo "Branch: ${{ github.ref }}"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
-           role-to-assume: arn:aws:iam::229853679013:role/github-actions-terraform-dev
-           aws-region: us-east-1
-           role-session-name: github-oidc-test
-
-      - name: Verify AWS Identity
-        run: aws sts get-caller-identity
+          role-to-assume: arn:aws:iam::229853679013:role/github-actions-terraform-dev
+          aws-region: us-east-1
+          role-session-name: terraform-plan
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -42,7 +38,7 @@ jobs:
           terraform_version: "1.13.0"
 
       - name: Terraform Format Check
-        run: terraform fmt -check
+        run: terraform fmt -check -recursive
 
       - name: Terraform Init
         run: terraform init -input=false
@@ -50,8 +46,59 @@ jobs:
       - name: Terraform Validate
         run: terraform validate -no-color
 
-      - name: Terraform Plan
-        run: terraform plan -input=false -no-color
+      - name: Generate Terraform Plan
+        run: terraform plan -input=false -no-color -out=tfplan
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve -input=false
+      - name: Display Terraform Plan
+        run: terraform show -no-color tfplan
+
+      - name: Upload Terraform Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-dev-plan
+          path: terraform/tfplan
+          retention-days: 1
+          if-no-files-found: error
+
+  terraform-apply:
+    name: Terraform Apply Dev
+    needs: terraform-plan
+    runs-on: ubuntu-latest
+
+    environment:
+      name: dev
+
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Terraform Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-dev-plan
+          path: terraform/
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::229853679013:role/github-actions-terraform-dev
+          aws-region: us-east-1
+          role-session-name: terraform-apply
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.0"
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Apply Approved Plan
+        run: terraform apply -input=false -no-color tfplan
+
+      - name: Terraform Outputs
+        run: terraform output -no-color
